@@ -13,13 +13,23 @@
 
 namespace easywsclient {
 
-struct Callback_Imp { virtual void operator()(const std::string& message) = 0; };
-struct BytesCallback_Imp { virtual void operator()(const std::vector<uint8_t>& message) = 0; };
+typedef enum opcode_type {
+	CONTINUATION = 0x0,
+	TEXT_FRAME = 0x1,
+	BINARY_FRAME = 0x2,
+	CLOSE = 8,
+	PING = 9,
+	PONG = 0xa,
+} opcode_type;
+
+struct Callback_Imp { virtual void operator()(opcode_type opcode, const std::string& message) = 0; }; 
+struct BytesCallback_Imp { virtual void operator()(opcode_type opcode, const std::vector<uint8_t>& message) = 0; };
 
 class WebSocket {
   public:
     typedef WebSocket * pointer;
     typedef enum readyStateValues { CLOSING, CLOSED, CONNECTING, OPEN } readyStateValues;
+	
 
     // Factories:
     static pointer create_dummy();
@@ -43,7 +53,7 @@ class WebSocket {
         struct _Callback : public Callback_Imp {
             Callable& callable;
             _Callback(Callable& callable) : callable(callable) { }
-            void operator()(const std::string& message) { callable(message); }
+            void operator()(opcode_type opcode, const std::string& message) { callable(opcode, message); }
         };
         _Callback callback(callable);
         _dispatch(callback);
