@@ -100,8 +100,37 @@ typedef enum OpCodeType {
 } OpCodeType;
 
 class WebSocket;
-WebSocket* from_url(const std::string& url, const std::string& origin = std::string());
-WebSocket* from_url_no_mask(const std::string& url, const std::string& origin = std::string());
+
+class IWebSocketCB {
+public:
+	virtual void OnRecvMessage(OpCodeType opcode, const std::string& msg) = 0;
+	virtual void OnDisconnected(const std::string& msg) = 0;
+};
+
+class WebSocketClient {
+public:
+	WebSocketClient();
+	~WebSocketClient();
+
+	bool Connect(const std::string& wsURI, IWebSocketCB* cb);
+	void Disconnect();
+	bool SendTextMessage(const std::string& msg);
+	bool SendBinaryMessage(const std::vector<uint8_t>& msg);
+	std::string GetLastError() const;
+private:
+	void Run();
+
+private:
+	IWebSocketCB* m_cb = nullptr;
+	std::shared_ptr<WebSocket> m_ws = nullptr;
+	std::string m_wsURI;
+	std::thread m_thread;
+	bool m_running = false;
+	std::string m_errmsg;
+};
+
+WebSocket* from_url(std::string& errmsg, const std::string& url, const std::string& origin = std::string());
+WebSocket* from_url_no_mask(std::string& errmsg, const std::string& url, const std::string& origin = std::string());
 
 class WebSocket {
 public:

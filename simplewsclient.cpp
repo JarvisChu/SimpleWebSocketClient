@@ -2,6 +2,104 @@
 
 namespace simplewsclient {
 
+
+WebSocketClient::WebSocketClient() {
+#ifdef _WIN32
+	INT rc;
+	WSADATA wsaData;
+
+	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (rc) {
+		printf("WSAStartup Failed.\n");
+		return;
+	}
+#endif
+}
+
+WebSocketClient::~WebSocketClient() {
+	Disconnect();
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
+}
+
+bool WebSocketClient::Connect(const std::string& wsURI, IWebSocketCB* cb) {
+	if (m_running) return true;
+
+	m_ws.reset(simplewsclient::from_url(m_errmsg, wsURI));
+	if (!m_ws) {
+		printf("create ws failed, errmsg:%s\n", m_errmsg.c_str());
+		return false;
+	}
+	m_wsURI = wsURI;
+	m_cb = cb;
+
+	// start internal thread
+	m_running = true;
+	m_thread = std::thread(&WebSocketClient::Run, this);
+
+	return true;
+}
+
+void WebSocketClient::Disconnect() {
+	if (m_running) {
+		m_running = false;
+
+		if (m_thread.joinable()) {
+			m_thread.join();
+		}
+
+		m_ws = nullptr;
+		m_cb = nullptr;
+	}
+}
+
+bool WebSocketClient::SendTextMessage(const std::string& msg) {
+	if (m_running && m_ws) {
+		m_ws->send(msg);
+		return true;
+	}
+
+	return false;
+}
+
+bool WebSocketClient::SendBinaryMessage(const std::vector<uint8_t>& msg) {
+	if (m_running && m_ws) {
+		m_ws->sendBinary(msg);
+		return true;
+	}
+
+	return false;
+}
+
+std::string WebSocketClient::GetLastError() const {
+	return m_errmsg;
+}
+
+void WebSocketClient::Run(){
+	while (m_running && m_ws && m_ws->getReadyState() != simplewsclient::WebSocket::CLOSED) {
+		m_ws->poll();
+		m_ws->dispatch([&](OpCodeType opcode,const std::string& msg) {
+			printf("recv ws message, opcode:%d, message_size:%d\n", opcode, msg.size());
+			if (m_cb) {
+				m_cb->OnRecvMessage(opcode, msg);
+			}
+		});
+	}
+
+	// disconnected by WebSocketClient::Disconnect, send close frame 
+	if (!m_running && m_ws) {
+		m_ws->close();
+		m_ws->poll();
+	}
+
+	// disconnected by ws error, not by WebSocketClient::Disconnect, call callback
+	if (m_running && m_ws && m_ws->getReadyState() == simplewsclient::WebSocket::CLOSED && m_cb) {
+		m_cb->OnDisconnected("disconnected");
+	}
+}
+
 socket_t hostname_connect(const std::string& hostname, int port) {
 	struct addrinfo hints;
 	struct addrinfo *result;
@@ -32,41 +130,42 @@ socket_t hostname_connect(const std::string& hostname, int port) {
 	return sockfd;
 }
 
-WebSocket* from_url(const std::string& url, bool useMask, const std::string& origin) {
-	char host[512];
-	int port;
-	char path[512];
+WebSocket* from_url(std::string& errmsg, const std::string& url, bool useMask, const std::string& origin) {
 	if (url.size() >= 512) {
-		fprintf(stderr, "ERROR: url size limit exceeded: %s\n", url.c_str());
-		return NULL;
+		errmsg = "ERROR: url size limit exceeded: " + url;
+		return nullptr;
 	}
+
 	if (origin.size() >= 200) {
-		fprintf(stderr, "ERROR: origin size limit exceeded: %s\n", origin.c_str());
-		return NULL;
+		errmsg = "ERROR: origin size limit exceeded: " + origin;
+		return nullptr;
 	}
-	if (false) {}
-	else if (sscanf(url.c_str(), "ws://%[^:/]:%d/%s", host, &port, path) == 3) {
-	}
-	else if (sscanf(url.c_str(), "ws://%[^:/]/%s", host, path) == 2) {
+
+	// parse url
+	char host[512];
+	int port = 0;
+	char path[512];
+	if (sscanf(url.c_str(), "ws://%[^:/]:%d/%s", host, &port, path) == 3) {
+	}else if (sscanf(url.c_str(), "ws://%[^:/]/%s", host, path) == 2) {
 		port = 80;
-	}
-	else if (sscanf(url.c_str(), "ws://%[^:/]:%d", host, &port) == 2) {
+	}else if (sscanf(url.c_str(), "ws://%[^:/]:%d", host, &port) == 2) {
 		path[0] = '\0';
-	}
-	else if (sscanf(url.c_str(), "ws://%[^:/]", host) == 1) {
+	}else if (sscanf(url.c_str(), "ws://%[^:/]", host) == 1) {
 		port = 80;
 		path[0] = '\0';
+	}else {
+		errmsg = "ERROR: Could not parse WebSocket url: " + url;
+		return nullptr;
 	}
-	else {
-		fprintf(stderr, "ERROR: Could not parse WebSocket url: %s\n", url.c_str());
-		return NULL;
-	}
-	//fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
+
+	printf("simplewsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
+
 	socket_t sockfd = hostname_connect(host, port);
 	if (sockfd == INVALID_SOCKET) {
-		fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
-		return NULL;
+		errmsg = "Unable to connect to " + std::string(host) + ":" + std::to_string(port);
+		return nullptr;
 	}
+
 	{
 		// XXX: this should be done non-blocking,
 		char line[1024];
@@ -97,6 +196,7 @@ WebSocket* from_url(const std::string& url, bool useMask, const std::string& ori
 			if (line[0] == '\r' && line[1] == '\n') { break; }
 		}
 	}
+
 	int flag = 1;
 	setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(flag)); // Disable Nagle's algorithm
 #ifdef _WIN32
@@ -105,16 +205,16 @@ WebSocket* from_url(const std::string& url, bool useMask, const std::string& ori
 #else
 	fcntl(sockfd, F_SETFL, O_NONBLOCK);
 #endif
-	//fprintf(stderr, "Connected to: %s\n", url.c_str());
+	printf("Connected to: %s\n", url.c_str());
 	return (WebSocket*) (new WebSocket(sockfd, useMask));
 }
 
-WebSocket* from_url(const std::string& url, const std::string& origin) {
-	return from_url(url, true, origin);
+WebSocket* from_url(std::string& errmsg, const std::string& url, const std::string& origin) {
+	return from_url(errmsg, url, true, origin);
 }
 
-WebSocket* from_url_no_mask(const std::string& url, const std::string& origin) {
-	return from_url(url, false, origin);
+WebSocket* from_url_no_mask(std::string& errmsg, const std::string& url, const std::string& origin) {
+	return from_url(errmsg, url, false, origin);
 }
 
 WebSocket::WebSocket(socket_t sockfd, bool useMask)

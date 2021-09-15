@@ -6,7 +6,7 @@
 #include <memory>
 #include <thread>
 
-void SendPcmAudio(std::shared_ptr<simplewsclient::WebSocket> ws, int sampleRate, int sampleBits, int channel, const char* file)
+void SendPcmAudio(simplewsclient::WebSocketClient& client, int sampleRate, int sampleBits, int channel, const char* file)
 {
 	FILE* fp = nullptr;
 	int ret = fopen_s(&fp, file, "rb");
@@ -31,7 +31,7 @@ void SendPcmAudio(std::shared_ptr<simplewsclient::WebSocket> ws, int sampleRate,
 
 		std::vector<uint8_t> vec;
 		vec.insert(vec.end(), buf, buf + readCnt);
-		ws->sendBinary(vec);
+		client.SendBinaryMessage(vec);
 		totalSend += readCnt;
 
 		Sleep(20);
@@ -55,55 +55,81 @@ void DebugWriteFile(const std::string& data) {
 	}
 }
 
+class WebSocketCB : public simplewsclient::IWebSocketCB {
+public:
+	void OnRecvMessage(simplewsclient::OpCodeType opcode, const std::string& msg) {
+		
+		static int total_binary_size = 0;
+		if (opcode == simplewsclient::TEXT_FRAME) {
+			printf("Receive Text, size:%d, data:%s\n", msg.size(), msg.c_str());
+		}if (opcode == simplewsclient::BINARY_FRAME) {
+			total_binary_size += msg.size();
+			printf("Receive Binary, size:%d, total:%d\n", msg.size(), total_binary_size);
+			DebugWriteFile(msg);
+		}
+	}
+
+	void OnDisconnected(const std::string& msg) {
+		printf("OnDisconnected: %s\n", msg.c_str());
+	}
+};
+
+
 int main()
 {
-#ifdef _WIN32
-    INT rc;
-    WSADATA wsaData;
+	simplewsclient::WebSocketClient client;
+	WebSocketCB cb;
 
-    rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (rc) {
-        printf("WSAStartup Failed.\n");
-        return 1;
-    }
-#endif
+	while (true) {
+		int option = 0;
+		printf("\n---------------------------------\n");
+		printf("1. connect\n");
+		printf("2. disconnect\n");
+		printf("3. set param as user, subscribe all\n");
+		printf("4. send pcm audio 8000_16_1_01.pcm\n");
+		printf("5. quick test\n");
+		printf("6. quit\n");
+		printf("\n---------------------------------\n");
+		printf("Input your choice: ");
+		scanf("%d", &option);
 
-	//std::shared_ptr<easywsclient::WebSocket> ws(easywsclient::WebSocket::from_url("ws://127.0.0.1:12061/Mixer"));
-	std::shared_ptr<simplewsclient::WebSocket> ws(simplewsclient::from_url("ws://127.0.0.1:9100/mix"));
-	if (ws == nullptr) {
-		printf("create ws failed\n");
-		return 1;
+		if (option == 1) {
+			bool ret = client.Connect("ws://127.0.0.1:12071/mix", &cb);
+			if (!ret) {
+				printf("connect failed, err:%s\n", client.GetLastError().c_str());
+			}
+		}
+
+		else if (option == 2){
+			client.Disconnect();
+		}
+
+		else if (option == 3){
+			client.SendTextMessage("{\"id\":2,\"role\":\"user\",\"audio_format\":\"pcm\",\"sample_rate\":8000,\"sample_bits\":16,\"channel_cnt\":1,\"need_subscribe\":true,\"subscribe_list\":[\"user\",\"seat\",\"manager\"]}");
+		}
+
+		else if (option == 4) {
+			SendPcmAudio(client, 8000, 16, 1, "C:\\8000_16_1_01.pcm");
+		}
+		
+		else if (option == 5){
+			simplewsclient::WebSocketClient client1;
+			WebSocketCB cb1;
+
+			bool ret = client1.Connect("ws://127.0.0.1:12071/mix", &cb);
+			if (!ret) {
+				printf("connect failed, err:%s\n", client1.GetLastError().c_str());
+				continue;
+			}
+
+			client1.SendTextMessage("{\"id\":2,\"role\":\"user\",\"audio_format\":\"pcm\",\"sample_rate\":8000,\"sample_bits\":16,\"channel_cnt\":1,\"need_subscribe\":true,\"subscribe_list\":[\"user\",\"seat\",\"manager\"]}");
+			//SendPcmAudio(client1, 8000, 16, 1, "C:\\8000_16_1_01.pcm");	
+		}
+
+		else if (option == 6) {
+			break;
+		}
 	}
 
-	// SetParam
-	ws->send("{\"id\":2,\"role\":\"user\",\"audio_format\":\"pcm\",\"sample_rate\":8000,\"sample_bits\":16,\"channel_cnt\":1,\"need_subscribe\":true,\"subscribe_list\":[\"user\",\"seat\",\"manager\"]}");
-
-	std::thread t1(SendPcmAudio, ws, 8000, 16, 1, "C:\\8000_16_1_01.pcm");
-
-	int total_binary_size = 0;
-    while (ws->getReadyState() != simplewsclient::WebSocket::CLOSED) {
-        ws->poll();
-		ws->dispatch([&total_binary_size, ws](
-			simplewsclient::OpCodeType opcode,
-			const std::string& message) {
-			if (opcode == simplewsclient::TEXT_FRAME) {
-				printf("Receive Text, size:%d, data:%s\n", message.size(), message.c_str());
-			}if (opcode == simplewsclient::BINARY_FRAME) {
-				total_binary_size += message.size();
-				printf("Receive Binary, size:%d, total:%d\n", message.size(), total_binary_size);
-				DebugWriteFile(message);
-			}	
-			if (message == "quit") { ws->close(); }
-        });
-    }
-
-	if (t1.joinable()) {
-		t1.join();
-	}
-
-#ifdef _WIN32
-    WSACleanup();
-#endif
-    // N.B. - unique_ptr will free the WebSocket instance upon return:
     return 0;
 }
