@@ -1,8 +1,6 @@
-#include "easywsclient.hpp"
+#include "simplewsclient.hpp"
 
-namespace easywsclient {
-
-//using namespace easywsclient;
+namespace simplewsclient {
 
 socket_t hostname_connect(const std::string& hostname, int port) {
 	struct addrinfo hints;
@@ -206,20 +204,20 @@ void WebSocket::poll(int timeout /*= 0*/) { // timeout in milliseconds
 }
 
 void WebSocket::send(const std::string& message) {
-	sendData(easywsclient::TEXT_FRAME, message.size(), message.begin(), message.end());
+	sendData(simplewsclient::TEXT_FRAME, message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendBinary(const std::string& message) {
-	sendData(easywsclient::BINARY_FRAME, message.size(), message.begin(), message.end());
+	sendData(simplewsclient::BINARY_FRAME, message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendBinary(const std::vector<uint8_t>& message) {
-	sendData(easywsclient::BINARY_FRAME, message.size(), message.begin(), message.end());
+	sendData(simplewsclient::BINARY_FRAME, message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendPing() {
 	std::string empty;
-	sendData(easywsclient::PING, empty.size(), empty.begin(), empty.end());
+	sendData(simplewsclient::PING, empty.size(), empty.begin(), empty.end());
 }
 
 template<class Iterator>
@@ -389,19 +387,19 @@ void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
 		if (rxbuf.size() < ws.header_size + ws.N)  break; // Need: ws.header_size+ws.N - rxbuf.size()
 
 														  // We got a whole message, now do something with it:
-		if (ws.opcode == easywsclient::TEXT_FRAME || ws.opcode == easywsclient::BINARY_FRAME || ws.opcode == easywsclient::CONTINUATION) {
+		if (ws.opcode == simplewsclient::TEXT_FRAME || ws.opcode == simplewsclient::BINARY_FRAME || ws.opcode == simplewsclient::CONTINUATION) {
 
-			OpCodeType opcode = easywsclient::CONTINUATION;
+			OpCodeType opcode = simplewsclient::CONTINUATION;
 
 			m_mtx_rxbuf.lock();
 			if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i + ws.header_size] ^= ws.masking_key[i & 0x3]; } }
 
-			if (ws.opcode == easywsclient::TEXT_FRAME || (ws.opcode == easywsclient::CONTINUATION && last_opcode == easywsclient::TEXT_FRAME)) {
-				opcode = easywsclient::TEXT_FRAME;
+			if (ws.opcode == simplewsclient::TEXT_FRAME || (ws.opcode == simplewsclient::CONTINUATION && last_opcode == simplewsclient::TEXT_FRAME)) {
+				opcode = simplewsclient::TEXT_FRAME;
 				recved_frame.insert(recved_frame.end(), rxbuf.begin() + ws.header_size, rxbuf.begin() + ws.header_size + (size_t)ws.N);// just feed
 			}
-			else if (ws.opcode == easywsclient::BINARY_FRAME || (ws.opcode == easywsclient::CONTINUATION && last_opcode == easywsclient::BINARY_FRAME)) {
-				opcode = easywsclient::BINARY_FRAME;
+			else if (ws.opcode == simplewsclient::BINARY_FRAME || (ws.opcode == simplewsclient::CONTINUATION && last_opcode == simplewsclient::BINARY_FRAME)) {
+				opcode = simplewsclient::BINARY_FRAME;
 				recved_frame.insert(recved_frame.end(), rxbuf.begin() + ws.header_size, rxbuf.begin() + ws.header_size + (size_t)ws.N);// just feed
 			}
 
@@ -415,22 +413,22 @@ void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
 			}
 		}
 
-		else if (ws.opcode == easywsclient::PING) {
+		else if (ws.opcode == simplewsclient::PING) {
 			m_mtx_rxbuf.lock();
 			if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i + ws.header_size] ^= ws.masking_key[i & 0x3]; } }
 			std::string data(rxbuf.begin() + ws.header_size, rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			m_mtx_rxbuf.unlock();
 
-			sendData(easywsclient::PONG, data.size(), data.begin(), data.end());
+			sendData(simplewsclient::PONG, data.size(), data.begin(), data.end());
 		}
 
-		else if (ws.opcode == easywsclient::PONG) {
+		else if (ws.opcode == simplewsclient::PONG) {
 			m_mtx_rxbuf.lock();
 			rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			m_mtx_rxbuf.unlock();
 		}
-		else if (ws.opcode == easywsclient::CLOSE) {
+		else if (ws.opcode == simplewsclient::CLOSE) {
 			m_mtx_rxbuf.lock();
 			rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			m_mtx_rxbuf.unlock();
@@ -445,4 +443,4 @@ void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
 	}
 }
 
-} // namespace easywsclient
+} // namespace simplewsclient

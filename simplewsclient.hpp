@@ -1,5 +1,5 @@
-#ifndef EASYWSCLIENT_HPP
-#define EASYWSCLIENT_HPP
+#ifndef SIMPLEWSCLIENT_HPP
+#define SIMPLEWSCLIENT_HPP
 
 #ifdef _WIN32
     #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
@@ -88,7 +88,7 @@
 #include <string>
 #include <mutex>
 
-namespace easywsclient {
+namespace simplewsclient {
 
 typedef enum OpCodeType {
 	CONTINUATION = 0x0,
@@ -98,8 +98,6 @@ typedef enum OpCodeType {
 	PING = 9,
 	PONG = 0xa,
 } OpCodeType;
-struct CallbackImp { virtual void operator()(OpCodeType opcode, const std::string& message) = 0; };
-struct BytesCallbackImp { virtual void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) = 0; };
 
 class WebSocket;
 WebSocket* from_url(const std::string& url, const std::string& origin = std::string());
@@ -150,6 +148,9 @@ public:
 	void sendPing();
 	void close();
 
+	struct CallbackImp { virtual void operator()(OpCodeType opcode, const std::string& message) = 0; };
+	struct BytesCallbackImp { virtual void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) = 0; };
+
 	// For callbacks that accept a string argument.
 	// this is compatible with both C++11 lambdas, functors and C function pointers
 	// Callable must have signature: void(OpCodeType opcode, const std::string & message).
@@ -190,7 +191,7 @@ private:
 	std::vector<uint8_t> txbuf;
 
 	std::vector<uint8_t> recved_frame;
-	OpCodeType last_opcode = easywsclient::TEXT_FRAME; // record last opcode type for processing CONTINUATION frames
+	OpCodeType last_opcode = simplewsclient::TEXT_FRAME; // record last opcode type for processing CONTINUATION frames
 
 	std::mutex m_mtx_rxbuf;
 	std::mutex m_mtx_txbuf;
@@ -201,6 +202,6 @@ private:
 	bool isRxBad;
 };
 
-} // namespace easywsclient
+} // namespace simplewsclient
 
-#endif // EASYWSCLIENT_HPP
+#endif // SIMPLEWSCLIENT_HPP

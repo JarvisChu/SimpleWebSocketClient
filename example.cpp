@@ -1,7 +1,4 @@
-// Compile with:
-// g++ -std=gnu++0x example-client-cpp11.cpp -o example-client-cpp11
-#include "easywsclient.hpp"
-//#include "easywsclient.cpp" // <-- include only if you don't want compile separately
+#include "simplewsclient.hpp"
 
 #include <assert.h>
 #include <stdio.h>
@@ -9,7 +6,7 @@
 #include <memory>
 #include <thread>
 
-void SendPcmAudio(std::shared_ptr<easywsclient::WebSocket> ws, int sampleRate, int sampleBits, int channel, const char* file)
+void SendPcmAudio(std::shared_ptr<simplewsclient::WebSocket> ws, int sampleRate, int sampleBits, int channel, const char* file)
 {
 	FILE* fp = nullptr;
 	int ret = fopen_s(&fp, file, "rb");
@@ -72,7 +69,7 @@ int main()
 #endif
 
 	//std::shared_ptr<easywsclient::WebSocket> ws(easywsclient::WebSocket::from_url("ws://127.0.0.1:12061/Mixer"));
-	std::shared_ptr<easywsclient::WebSocket> ws(easywsclient::from_url("ws://127.0.0.1:9100/mix"));
+	std::shared_ptr<simplewsclient::WebSocket> ws(simplewsclient::from_url("ws://127.0.0.1:9100/mix"));
 	if (ws == nullptr) {
 		printf("create ws failed\n");
 		return 1;
@@ -84,14 +81,14 @@ int main()
 	std::thread t1(SendPcmAudio, ws, 8000, 16, 1, "C:\\8000_16_1_01.pcm");
 
 	int total_binary_size = 0;
-    while (ws->getReadyState() != easywsclient::WebSocket::CLOSED) {
+    while (ws->getReadyState() != simplewsclient::WebSocket::CLOSED) {
         ws->poll();
 		ws->dispatch([&total_binary_size, ws](
-				easywsclient::OpCodeType opcode, 
+			simplewsclient::OpCodeType opcode,
 			const std::string& message) {
-			if (opcode == easywsclient::TEXT_FRAME) {
+			if (opcode == simplewsclient::TEXT_FRAME) {
 				printf("Receive Text, size:%d, data:%s\n", message.size(), message.c_str());
-			}if (opcode == easywsclient::BINARY_FRAME) {
+			}if (opcode == simplewsclient::BINARY_FRAME) {
 				total_binary_size += message.size();
 				printf("Receive Binary, size:%d, total:%d\n", message.size(), total_binary_size);
 				DebugWriteFile(message);
