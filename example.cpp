@@ -2,16 +2,12 @@
 // g++ -std=gnu++0x example-client-cpp11.cpp -o example-client-cpp11
 #include "easywsclient.hpp"
 //#include "easywsclient.cpp" // <-- include only if you don't want compile separately
-#ifdef _WIN32
-#pragma comment( lib, "ws2_32" )
-#include <WinSock2.h>
-#endif
+
 #include <assert.h>
 #include <stdio.h>
 #include <string>
 #include <memory>
 #include <thread>
-
 
 void SendPcmAudio(std::shared_ptr<easywsclient::WebSocket> ws, int sampleRate, int sampleBits, int channel, const char* file)
 {
@@ -76,7 +72,7 @@ int main()
 #endif
 
 	//std::shared_ptr<easywsclient::WebSocket> ws(easywsclient::WebSocket::from_url("ws://127.0.0.1:12061/Mixer"));
-	std::shared_ptr<easywsclient::WebSocket> ws(easywsclient::WebSocket::from_url("ws://127.0.0.1:9100/mix"));
+	std::shared_ptr<easywsclient::WebSocket> ws(easywsclient::from_url("ws://127.0.0.1:9100/mix"));
 	if (ws == nullptr) {
 		printf("create ws failed\n");
 		return 1;
@@ -89,9 +85,10 @@ int main()
 
 	int total_binary_size = 0;
     while (ws->getReadyState() != easywsclient::WebSocket::CLOSED) {
-        //WebSocket::pointer wsp = &*ws; // <-- because a unique_ptr cannot be copied into a lambda
         ws->poll();
-        ws->dispatch([&total_binary_size, ws](easywsclient::opcode_type opcode, const std::string & message) {
+		ws->dispatch([&total_binary_size, ws](
+				easywsclient::OpCodeType opcode, 
+			const std::string& message) {
 			if (opcode == easywsclient::TEXT_FRAME) {
 				printf("Receive Text, size:%d, data:%s\n", message.size(), message.c_str());
 			}if (opcode == easywsclient::BINARY_FRAME) {
@@ -99,7 +96,7 @@ int main()
 				printf("Receive Binary, size:%d, total:%d\n", message.size(), total_binary_size);
 				DebugWriteFile(message);
 			}	
-			if (message == "quit") { /*wsp->close();*/ ws->close(); }
+			if (message == "quit") { ws->close(); }
         });
     }
 
