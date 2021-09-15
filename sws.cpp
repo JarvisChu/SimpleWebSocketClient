@@ -1,7 +1,6 @@
-#include "simplewsclient.hpp"
+#include "sws.hpp"
 
-namespace simplewsclient {
-
+namespace sws {
 
 WebSocketClient::WebSocketClient() {
 #ifdef _WIN32
@@ -27,7 +26,7 @@ WebSocketClient::~WebSocketClient() {
 bool WebSocketClient::Connect(const std::string& wsURI, IWebSocketCB* cb) {
 	if (m_running) return true;
 
-	m_ws.reset(simplewsclient::from_url(m_errmsg, wsURI));
+	m_ws.reset(sws::from_url(m_errmsg, wsURI));
 	if (!m_ws) {
 		printf("create ws failed, errmsg:%s\n", m_errmsg.c_str());
 		return false;
@@ -78,7 +77,7 @@ std::string WebSocketClient::GetLastError() const {
 }
 
 void WebSocketClient::Run(){
-	while (m_running && m_ws && m_ws->getReadyState() != simplewsclient::WebSocket::CLOSED) {
+	while (m_running && m_ws && m_ws->getReadyState() != sws::WebSocket::CLOSED) {
 		m_ws->poll();
 		m_ws->dispatch([&](OpCodeType opcode,const std::string& msg) {
 			printf("recv ws message, opcode:%d, message_size:%d\n", opcode, msg.size());
@@ -95,7 +94,7 @@ void WebSocketClient::Run(){
 	}
 
 	// disconnected by ws error, not by WebSocketClient::Disconnect, call callback
-	if (m_running && m_ws && m_ws->getReadyState() == simplewsclient::WebSocket::CLOSED && m_cb) {
+	if (m_running && m_ws && m_ws->getReadyState() == sws::WebSocket::CLOSED && m_cb) {
 		m_cb->OnDisconnected("disconnected");
 	}
 }
@@ -158,7 +157,7 @@ WebSocket* from_url(std::string& errmsg, const std::string& url, bool useMask, c
 		return nullptr;
 	}
 
-	printf("simplewsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
+	printf("swsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
 
 	socket_t sockfd = hostname_connect(host, port);
 	if (sockfd == INVALID_SOCKET) {
@@ -304,20 +303,20 @@ void WebSocket::poll(int timeout /*= 0*/) { // timeout in milliseconds
 }
 
 void WebSocket::send(const std::string& message) {
-	sendData(simplewsclient::TEXT_FRAME, message.size(), message.begin(), message.end());
+	sendData(sws::TEXT_FRAME, message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendBinary(const std::string& message) {
-	sendData(simplewsclient::BINARY_FRAME, message.size(), message.begin(), message.end());
+	sendData(sws::BINARY_FRAME, message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendBinary(const std::vector<uint8_t>& message) {
-	sendData(simplewsclient::BINARY_FRAME, message.size(), message.begin(), message.end());
+	sendData(sws::BINARY_FRAME, message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendPing() {
 	std::string empty;
-	sendData(simplewsclient::PING, empty.size(), empty.begin(), empty.end());
+	sendData(sws::PING, empty.size(), empty.begin(), empty.end());
 }
 
 template<class Iterator>
@@ -487,19 +486,19 @@ void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
 		if (rxbuf.size() < ws.header_size + ws.N)  break; // Need: ws.header_size+ws.N - rxbuf.size()
 
 														  // We got a whole message, now do something with it:
-		if (ws.opcode == simplewsclient::TEXT_FRAME || ws.opcode == simplewsclient::BINARY_FRAME || ws.opcode == simplewsclient::CONTINUATION) {
+		if (ws.opcode == sws::TEXT_FRAME || ws.opcode == sws::BINARY_FRAME || ws.opcode == sws::CONTINUATION) {
 
-			OpCodeType opcode = simplewsclient::CONTINUATION;
+			OpCodeType opcode = sws::CONTINUATION;
 
 			m_mtx_rxbuf.lock();
 			if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i + ws.header_size] ^= ws.masking_key[i & 0x3]; } }
 
-			if (ws.opcode == simplewsclient::TEXT_FRAME || (ws.opcode == simplewsclient::CONTINUATION && last_opcode == simplewsclient::TEXT_FRAME)) {
-				opcode = simplewsclient::TEXT_FRAME;
+			if (ws.opcode == sws::TEXT_FRAME || (ws.opcode == sws::CONTINUATION && last_opcode == sws::TEXT_FRAME)) {
+				opcode = sws::TEXT_FRAME;
 				recved_frame.insert(recved_frame.end(), rxbuf.begin() + ws.header_size, rxbuf.begin() + ws.header_size + (size_t)ws.N);// just feed
 			}
-			else if (ws.opcode == simplewsclient::BINARY_FRAME || (ws.opcode == simplewsclient::CONTINUATION && last_opcode == simplewsclient::BINARY_FRAME)) {
-				opcode = simplewsclient::BINARY_FRAME;
+			else if (ws.opcode == sws::BINARY_FRAME || (ws.opcode == sws::CONTINUATION && last_opcode == sws::BINARY_FRAME)) {
+				opcode = sws::BINARY_FRAME;
 				recved_frame.insert(recved_frame.end(), rxbuf.begin() + ws.header_size, rxbuf.begin() + ws.header_size + (size_t)ws.N);// just feed
 			}
 
@@ -513,22 +512,22 @@ void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
 			}
 		}
 
-		else if (ws.opcode == simplewsclient::PING) {
+		else if (ws.opcode == sws::PING) {
 			m_mtx_rxbuf.lock();
 			if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i + ws.header_size] ^= ws.masking_key[i & 0x3]; } }
 			std::string data(rxbuf.begin() + ws.header_size, rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			m_mtx_rxbuf.unlock();
 
-			sendData(simplewsclient::PONG, data.size(), data.begin(), data.end());
+			sendData(sws::PONG, data.size(), data.begin(), data.end());
 		}
 
-		else if (ws.opcode == simplewsclient::PONG) {
+		else if (ws.opcode == sws::PONG) {
 			m_mtx_rxbuf.lock();
 			rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			m_mtx_rxbuf.unlock();
 		}
-		else if (ws.opcode == simplewsclient::CLOSE) {
+		else if (ws.opcode == sws::CLOSE) {
 			m_mtx_rxbuf.lock();
 			rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size + (size_t)ws.N);
 			m_mtx_rxbuf.unlock();
@@ -543,4 +542,4 @@ void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
 	}
 }
 
-} // namespace simplewsclient
+} // namespace sws

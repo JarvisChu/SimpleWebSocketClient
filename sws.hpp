@@ -88,7 +88,7 @@
 #include <string>
 #include <mutex>
 
-namespace simplewsclient {
+namespace sws { // simple websocket
 
 typedef enum OpCodeType {
 	CONTINUATION = 0x0,
@@ -220,7 +220,7 @@ private:
 	std::vector<uint8_t> txbuf;
 
 	std::vector<uint8_t> recved_frame;
-	OpCodeType last_opcode = simplewsclient::TEXT_FRAME; // record last opcode type for processing CONTINUATION frames
+	OpCodeType last_opcode = sws::TEXT_FRAME; // record last opcode type for processing CONTINUATION frames
 
 	std::mutex m_mtx_rxbuf;
 	std::mutex m_mtx_txbuf;
@@ -231,6 +231,6 @@ private:
 	bool isRxBad;
 };
 
-} // namespace simplewsclient
+} // namespace sws
 
 #endif // SIMPLEWSCLIENT_HPP

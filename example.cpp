@@ -1,4 +1,4 @@
-#include "simplewsclient.hpp"
+#include "sws.hpp"
 
 #include <assert.h>
 #include <stdio.h>
@@ -6,7 +6,7 @@
 #include <memory>
 #include <thread>
 
-void SendPcmAudio(simplewsclient::WebSocketClient& client, int sampleRate, int sampleBits, int channel, const char* file)
+void SendPcmAudio(sws::WebSocketClient& client, int sampleRate, int sampleBits, int channel, const char* file)
 {
 	FILE* fp = nullptr;
 	int ret = fopen_s(&fp, file, "rb");
@@ -55,14 +55,14 @@ void DebugWriteFile(const std::string& data) {
 	}
 }
 
-class WebSocketCB : public simplewsclient::IWebSocketCB {
+class WebSocketCB : public sws::IWebSocketCB {
 public:
-	void OnRecvMessage(simplewsclient::OpCodeType opcode, const std::string& msg) {
+	void OnRecvMessage(sws::OpCodeType opcode, const std::string& msg) {
 		
 		static int total_binary_size = 0;
-		if (opcode == simplewsclient::TEXT_FRAME) {
+		if (opcode == sws::TEXT_FRAME) {
 			printf("Receive Text, size:%d, data:%s\n", msg.size(), msg.c_str());
-		}if (opcode == simplewsclient::BINARY_FRAME) {
+		}if (opcode == sws::BINARY_FRAME) {
 			total_binary_size += msg.size();
 			printf("Receive Binary, size:%d, total:%d\n", msg.size(), total_binary_size);
 			DebugWriteFile(msg);
@@ -77,7 +77,7 @@ public:
 
 int main()
 {
-	simplewsclient::WebSocketClient client;
+	sws::WebSocketClient client;
 	WebSocketCB cb;
 
 	while (true) {
@@ -113,7 +113,7 @@ int main()
 		}
 		
 		else if (option == 5){
-			simplewsclient::WebSocketClient client1;
+			sws::WebSocketClient client1;
 			WebSocketCB cb1;
 
 			bool ret = client1.Connect("ws://127.0.0.1:12071/mix", &cb);
