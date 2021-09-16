@@ -183,7 +183,7 @@ public:
 	// this is compatible with both C++11 lambdas, functors and C function pointers
 	// Callable must have signature: void(OpCodeType opcode, const std::string & message).
 	template<class Callable>
-	void WebSocket::dispatch(Callable callable) {
+	void dispatch(Callable callable) {
 		struct _Callback : public CallbackImp {
 			Callable& callable;
 			_Callback(Callable& callable) : callable(callable) { }
@@ -197,7 +197,7 @@ public:
 	// this is compatible with both C++11 lambdas, functors and C function pointers
 	// Callable must have signature: void(OpCodeType opcode, const std::vector<uint8_t> & message).
 	template<class Callable>
-	void WebSocket::dispatchBinary(Callable callable) {
+	void dispatchBinary(Callable callable) {
 		struct _Callback : public BytesCallbackImp {
 			Callable& callable;
 			_Callback(Callable& callable) : callable(callable) { }
