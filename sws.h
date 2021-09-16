@@ -87,6 +87,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <thread>
 
 namespace sws { // simple websocket client
 
@@ -187,11 +188,11 @@ public:
 		struct _Callback : public CallbackImp {
 			Callable& callable;
 			_Callback(Callable& callable) : callable(callable) { }
-			void operator()(OpCodeType opcode, const std::string& message) { callable(opcode, message); }
+			void operator()(OpCodeType opcode, const std::string& message) override { callable(opcode, message); }
 		};
 		_Callback callback(callable);
 		dispatchInternal(callback);
-	};
+	}
 
 	// For callbacks that accept a std::vector<uint8_t> argument.
 	// this is compatible with both C++11 lambdas, functors and C function pointers
@@ -201,11 +202,11 @@ public:
 		struct _Callback : public BytesCallbackImp {
 			Callable& callable;
 			_Callback(Callable& callable) : callable(callable) { }
-			void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) { callable(opcode, message); }
+			void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) override { callable(opcode, message); }
 		};
 		_Callback callback(callable);
 		dispatchBinaryInternal(callback);
-	};
+	}
 
 private:
 	template<class Iterator>

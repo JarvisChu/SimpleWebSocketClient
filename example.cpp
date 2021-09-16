@@ -1,4 +1,4 @@
-#include "sws.hpp"
+#include "sws.h"
 
 #include <assert.h>
 #include <stdio.h>

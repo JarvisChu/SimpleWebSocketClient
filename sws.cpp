@@ -1,4 +1,4 @@
-#include "sws.hpp"
+#include "sws.h"
 
 namespace sws {
 
@@ -113,7 +113,7 @@ socket_t hostname_connect(const std::string& hostname, int port) {
 	snprintf(sport, 16, "%d", port);
 	if ((ret = getaddrinfo(hostname.c_str(), sport, &hints, &result)) != 0)
 	{
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerrorA(ret));
 		return 1;
 	}
 	for (p = result; p != NULL; p = p->ai_next)
@@ -404,7 +404,7 @@ void WebSocket::dispatchInternal(CallbackImp & callable) {
 	struct CallbackAdapter : public BytesCallbackImp{
 		CallbackImp& callable;
 		CallbackAdapter(CallbackImp& callable) : callable(callable) { }
-		void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) {
+		void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) override {
 			std::string stringMessage(message.begin(), message.end());
 			callable(opcode, stringMessage);
 		}
