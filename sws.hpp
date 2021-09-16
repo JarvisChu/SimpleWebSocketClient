@@ -160,7 +160,6 @@ public:
     void close();
 
     struct CallbackImp { virtual void operator()(OpCodeType opcode, const std::string& message) = 0; };
-    struct BytesCallbackImp { virtual void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) = 0; };
 
     // For callbacks that accept a string argument.
     // this is compatible with both C++11 lambdas, functors and C function pointers
@@ -176,20 +175,6 @@ public:
         dispatchInternal(callback);
     }
 
-    // For callbacks that accept a std::vector<uint8_t> argument.
-    // this is compatible with both C++11 lambdas, functors and C function pointers
-    // Callable must have signature: void(OpCodeType opcode, const std::vector<uint8_t> & message).
-    template<class Callable>
-    void dispatchBinary(Callable callable) {
-        struct _Callback : public BytesCallbackImp {
-            Callable& callable;
-            _Callback(Callable& callable) : callable(callable) { }
-            void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) override { callable(opcode, message); }
-        };
-        _Callback callback(callable);
-        dispatchBinaryInternal(callback);
-    }
-
 private:
     static socket_t connectByHostName(const std::string& hostname, int port);
     static WebSocket* fromURL(std::string& errmsg, const std::string& url, bool useMask, const std::string& origin = std::string());
@@ -197,8 +182,7 @@ private:
     template<class Iterator>
     void sendData(OpCodeType type, uint64_t message_size, Iterator message_begin, Iterator message_end);
 
-    void dispatchInternal(CallbackImp& callable);
-    void dispatchBinaryInternal(BytesCallbackImp& callable);
+	void dispatchInternal(CallbackImp& callable);
 
 private:
     std::vector<uint8_t> rxbuf;
@@ -410,20 +394,20 @@ void WebSocket::poll(int timeout /*= 0*/) { // timeout in milliseconds
 }
 
 void WebSocket::send(const std::string& message) {
-    sendData(sws::TEXT_FRAME, message.size(), message.begin(), message.end());
+    sendData(sws::TEXT_FRAME, (uint64_t)message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendBinary(const std::string& message) {
-    sendData(sws::BINARY_FRAME, message.size(), message.begin(), message.end());
+    sendData(sws::BINARY_FRAME, (uint64_t)message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendBinary(const std::vector<uint8_t>& message) {
-    sendData(sws::BINARY_FRAME, message.size(), message.begin(), message.end());
+    sendData(sws::BINARY_FRAME, (uint64_t)message.size(), message.begin(), message.end());
 }
 
 void WebSocket::sendPing() {
     std::string empty;
-    sendData(sws::PING, empty.size(), empty.begin(), empty.end());
+    sendData(sws::PING, (uint64_t)empty.size(), empty.begin(), empty.end());
 }
 
 template<class Iterator>
@@ -483,13 +467,12 @@ void WebSocket::sendData(OpCodeType type, uint64_t message_size, Iterator messag
     txbuf.insert(txbuf.end(), header.begin(), header.end());
     txbuf.insert(txbuf.end(), message_begin, message_end);
     if (useMask) {
-        size_t message_offset = txbuf.size() - message_size;
-        for (size_t i = 0; i != message_size; ++i) {
+        size_t message_offset = txbuf.size() - (size_t)message_size;
+        for (size_t i = 0; i != (size_t)message_size; ++i) {
             txbuf[message_offset + i] ^= masking_key[i & 0x3];
         }
     }
     m_mtx_txbuf.unlock();
-
 }
 
 void WebSocket::close() {
@@ -503,24 +486,7 @@ void WebSocket::close() {
     m_mtx_txbuf.unlock();
 }
 
-void WebSocket::dispatchInternal(CallbackImp & callable) {
-
-    // Adapt void(const std::string<uint8_t>&) to void(const std::string&)
-    struct CallbackAdapter : public BytesCallbackImp {
-        CallbackImp& callable;
-        CallbackAdapter(CallbackImp& callable) : callable(callable) { }
-        void operator()(OpCodeType opcode, const std::vector<uint8_t>& message) override {
-            std::string stringMessage(message.begin(), message.end());
-            callable(opcode, stringMessage);
-        }
-    };
-
-    CallbackAdapter bytesCallback(callable);
-    dispatchBinaryInternal(bytesCallback);
-}
-
-void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
-
+void WebSocket::dispatchInternal(CallbackImp& callable) {
     if (isRxBad) {
         return;
     }
@@ -612,7 +578,8 @@ void WebSocket::dispatchBinaryInternal(BytesCallbackImp & callable) {
             m_mtx_rxbuf.unlock();
 
             if (ws.fin) {
-                callable(opcode, (const std::vector<uint8_t>) recved_frame);
+                std::string msg(recved_frame.begin(), recved_frame.end());
+                callable(opcode, msg);
                 recved_frame.clear();
                 std::vector<uint8_t>().swap(recved_frame);// free memory
             }
@@ -691,7 +658,7 @@ WebSocketClient::WebSocketClient() {
         return;
     }
 #endif
-};
+}
 
 WebSocketClient::~WebSocketClient() {
     Disconnect();
