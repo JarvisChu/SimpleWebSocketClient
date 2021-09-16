@@ -1,4 +1,4 @@
-#include "sws.hpp"
+#include "sws.h"
 #include <iostream>
 
 class WebSocketCB : public sws::IWebSocketCB {

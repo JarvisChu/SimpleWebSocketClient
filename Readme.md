@@ -1,13 +1,13 @@
 # Simple WebSocket Client
 
-**ONLY One header file** implementation of Web Socket Cliet.
+Simple implementation of Web Socket Cliet.
 
 > Based on https://github.com/dhbaird/easywsclient
 
 ## Example
 
 ```cpp
-#include "sws.hpp" // all you have to include is this header file
+#include "sws.h"
 #include <iostream>
 
 class WebSocketCB : public sws::IWebSocketCB {
