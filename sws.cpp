@@ -36,8 +36,9 @@ bool WebSocketClient::Connect(const std::string& wsURI, IWebSocketCB* cb) {
 
 	// start internal thread
 	m_running = true;
-	m_thread = std::thread(&WebSocketClient::Run, this);
 
+	std::thread tmpThread(&WebSocketClient::Run, this);
+	m_thread.swap(tmpThread);
 	return true;
 }
 

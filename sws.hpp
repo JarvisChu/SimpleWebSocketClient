@@ -88,7 +88,7 @@
 #include <string>
 #include <mutex>
 
-namespace sws { // simple websocket
+namespace sws { // simple websocket client
 
 typedef enum OpCodeType {
 	CONTINUATION = 0x0,
@@ -99,14 +99,13 @@ typedef enum OpCodeType {
 	PONG = 0xa,
 } OpCodeType;
 
-class WebSocket;
-
 class IWebSocketCB {
 public:
 	virtual void OnRecvMessage(OpCodeType opcode, const std::string& msg) = 0;
 	virtual void OnDisconnected(const std::string& msg) = 0;
 };
 
+class WebSocket;
 class WebSocketClient {
 public:
 	WebSocketClient();
