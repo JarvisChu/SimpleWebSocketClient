@@ -1,5 +1,5 @@
-#ifndef SIMPLEWSCLIENT_HPP
-#define SIMPLEWSCLIENT_HPP
+#ifndef SIMPLE_WSCLIENT_H
+#define SIMPLE_WSCLIENT_H
 
 #ifdef _WIN32
     #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
@@ -233,4 +233,4 @@ private:
 
 } // namespace sws
 
-#endif // SIMPLEWSCLIENT_HPP
+#endif // SIMPLE_WSCLIENT_H
