@@ -1,4 +1,3 @@
-
 #include "sws.h"
 
 namespace sws {
@@ -229,8 +228,8 @@ void WebSocket::sendData(OpCodeType type, uint64_t message_size, Iterator messag
     std::vector<uint8_t> header;
     header.assign(2 + (message_size >= 126 ? 2 : 0) + (message_size >= 65536 ? 6 : 0) + (useMask ? 4 : 0), 0);
     header[0] = 0x80 | type;
-    if (false) {}
-    else if (message_size < 126) {
+
+    if (message_size < 126) {
         header[1] = (message_size & 0xff) | (useMask ? 0x80 : 0);
         if (useMask) {
             header[2] = masking_key[0];
@@ -519,6 +518,14 @@ void WebSocketClient::Run() {
     if (m_running && m_ws && m_ws->getReadyState() == WebSocket::CLOSED && m_cb) {
         m_cb->OnDisconnected("disconnected");
     }
+}
+
+bool WebSocketClient::IsConnected() const {
+	if (m_running && m_ws && m_ws->getReadyState() != WebSocket::CLOSED) {
+		return true;
+	}
+
+	return false;
 }
 
 } // namespace sws

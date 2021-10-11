@@ -90,7 +90,6 @@
 #include <mutex>
 #include <thread>
 
-
 namespace sws { // simple websocket client
 
 // WebSocket Protocol Op Code
@@ -222,6 +221,7 @@ public:
     bool SendTextMessage(const std::string& msg);
     bool SendBinaryMessage(const std::vector<uint8_t>& msg);
     std::string GetLastError() const;
+	bool IsConnected() const;
 private:
     void Run();
 
